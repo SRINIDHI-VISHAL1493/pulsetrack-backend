@@ -1,13 +1,26 @@
 # PulseTrack
 
-PulseTrack is a minimal FastAPI backend for the internship project focused on doctor-patient appointments and prescriptions.
+PulseTrack is a FastAPI-based backend project designed for a doctor-patient appointment and prescription management system. It serves as the foundation for a healthcare platform where doctors can manage patient records, schedule appointments, and issue prescriptions through a clean and scalable API.
+
+This project is being developed as part of a Python backend internship and is structured to evolve from a basic backend foundation into a fully functional healthcare service API.
 
 ## Features
 
 - FastAPI application scaffold
-- Health check endpoint
-- App metadata and cleaner startup info
-- Favicon route for browser-friendly requests
+- Health check endpoint for service validation
+- Clean project structure for scalable backend development
+- Local environment setup with Python virtual environment
+- Browser-friendly favicon support
+- API-ready foundation for future modules and authentication
+
+## Project goals
+
+- Build a robust backend for healthcare operations
+- Support doctor and patient management workflows
+- Enable appointment scheduling and tracking
+- Manage prescription creation and retrieval
+- Provide structured APIs for future frontend integration
+- Maintain clean, modular backend architecture
 
 ## Run locally
 
@@ -25,7 +38,7 @@ uvicorn app.main:app --reload
 http://127.0.0.1:8000/
 ```
 
-Expected response:
+Example response:
 
 ```json
 {
@@ -41,7 +54,7 @@ Expected response:
 http://127.0.0.1:8000/health
 ```
 
-Expected response:
+Example response:
 
 ```json
 {
@@ -49,3 +62,7 @@ Expected response:
   "service": "PulseTrack"
 }
 ```
+
+## Project status
+
+The repository currently includes the initial backend foundation and is ready for the next phases of feature development, including doctor and patient APIs, appointment logic, and prescription management.
