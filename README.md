@@ -12,6 +12,8 @@ This project is being developed as part of a Python backend internship and is st
 - Local environment setup with Python virtual environment
 - Browser-friendly favicon support
 - API-ready foundation for future modules and authentication
+- Domain models for doctors, patients, appointments, and prescriptions
+- RESTful endpoint planning with request/response validation
 
 ## Project goals
 
@@ -21,6 +23,60 @@ This project is being developed as part of a Python backend internship and is st
 - Manage prescription creation and retrieval
 - Provide structured APIs for future frontend integration
 - Maintain clean, modular backend architecture
+
+## Task 2: API design
+
+This milestone focuses on defining the core healthcare domain and the REST contract before implementation. The system centers on four main entities:
+
+- Doctor: personal profile, specialization, clinic association, and contact details
+- Patient: demographic data, DOB, contact information, and address
+- Appointment: scheduled meeting between a doctor and patient with status tracking
+- Prescription: clinical diagnosis, medicines, instructions, and follow-up plan
+
+### Relationships
+
+- One doctor can have many appointments
+- One patient can have many appointments
+- Each appointment belongs to exactly one doctor and one patient
+- Each prescription belongs to one appointment, one doctor, and one patient
+
+### Pydantic models
+
+The API uses Pydantic models to validate request and response payloads for all core entities. These models define required fields, optional fields, and constraints such as field lengths, date validation, and supported appointment statuses.
+
+### Endpoint plan
+
+#### Doctors
+
+- `GET /api/v1/doctors` — list all doctors
+- `POST /api/v1/doctors` — create a doctor profile
+- `GET /api/v1/doctors/{doctor_id}` — fetch a specific doctor
+
+#### Patients
+
+- `GET /api/v1/patients` — list all patients
+- `POST /api/v1/patients` — create a patient profile
+- `GET /api/v1/patients/{patient_id}` — fetch a specific patient
+
+#### Appointments
+
+- `GET /api/v1/appointments` — list all appointments
+- `POST /api/v1/appointments` — schedule a consultation
+- `GET /api/v1/appointments/{appointment_id}` — fetch one appointment
+- `PATCH /api/v1/appointments/{appointment_id}/status` — update appointment status
+
+#### Prescriptions
+
+- `GET /api/v1/prescriptions` — list all prescriptions
+- `POST /api/v1/prescriptions` — create a prescription after an appointment
+- `GET /api/v1/prescriptions/{prescription_id}` — fetch one prescription
+
+### Success and error handling
+
+- Standard HTTP 200 responses for fetches and updates
+- HTTP 201 for successful creation
+- HTTP 404 when a doctor, patient, appointment, or prescription is missing
+- HTTP 400 validation errors for invalid relation mapping or malformed payloads
 
 ## Run locally
 
@@ -63,6 +119,16 @@ Example response:
 }
 ```
 
+### API design examples
+
+```text
+GET http://127.0.0.1:8000/api/v1/doctors
+POST http://127.0.0.1:8000/api/v1/doctors
+GET http://127.0.0.1:8000/api/v1/patients
+POST http://127.0.0.1:8000/api/v1/appointments
+POST http://127.0.0.1:8000/api/v1/prescriptions
+```
+
 ## Project status
 
-The repository currently includes the initial backend foundation and is ready for the next phases of feature development, including doctor and patient APIs, appointment logic, and prescription management.
+The repository currently includes the backend foundation and the Task 2 API design implementation for doctors, patients, appointments, and prescriptions with schema validation and RESTful endpoint contracts.
