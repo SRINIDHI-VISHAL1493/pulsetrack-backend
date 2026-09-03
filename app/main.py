@@ -8,6 +8,9 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app import models  # noqa: F401  # registers SQLAlchemy models
+from app.database import init_db
+
 
 class AppointmentStatus(str, Enum):
     scheduled = "scheduled"
@@ -114,6 +117,11 @@ app = FastAPI(
     description="Doctor-patient appointment and prescription API",
     version="0.2.0",
 )
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    await init_db()
 
 
 doctors_db: Dict[int, Doctor] = {}

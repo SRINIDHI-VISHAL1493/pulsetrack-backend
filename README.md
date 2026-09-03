@@ -24,6 +24,44 @@ This project is being developed as part of a Python backend internship and is st
 - Provide structured APIs for future frontend integration
 - Maintain clean, modular backend architecture
 
+## Task 3: Database setup
+
+This milestone adds the persistence layer for the PulseTrack healthcare API. The backend now uses SQLAlchemy with async database access and Alembic for schema versioning, so the application transitions from in-memory data storage to a real database-backed architecture.
+
+### Database architecture
+
+- PostgreSQL is the production-ready target database for the healthcare platform
+- SQLAlchemy ORM models define the core entities and relationships
+- Alembic tracks schema changes and supports safe migrations
+- Async database sessions enable non-blocking data access in FastAPI
+- A local SQLite fallback is included for development and testing consistency
+
+### Models and relationships
+
+The database schema includes the four core entities:
+
+- Doctor: profile and clinic information
+- Patient: demographics, contact details, and address
+- Appointment: scheduled doctor-patient consultation relationship
+- Prescription: medical diagnosis, medications, instructions, and follow-up date
+
+### Alembic workflow
+
+```bash
+cd "/Users/srinidhivishalchejarla/Downloads/zyoralabs vscode"
+source .venv/bin/activate
+alembic revision --autogenerate -m "initial_schema"
+alembic upgrade head
+```
+
+### Environment configuration
+
+```bash
+export DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/pulsetrack"
+```
+
+If no database URL is set, the application falls back to a local SQLite database for quick testing.
+
 ## Task 2: API design
 
 This milestone focuses on defining the core healthcare domain and the REST contract before implementation. The system centers on four main entities:
@@ -131,4 +169,4 @@ POST http://127.0.0.1:8000/api/v1/prescriptions
 
 ## Project status
 
-The repository currently includes the backend foundation and the Task 2 API design implementation for doctors, patients, appointments, and prescriptions with schema validation and RESTful endpoint contracts.
+The repository currently includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, and the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support.
