@@ -26,6 +26,10 @@ class Medication(BaseModel):
     duration_days: int = Field(..., ge=1, le=365)
 
 
+class AppointmentStatusUpdate(BaseModel):
+    status: AppointmentStatus
+
+
 class DoctorBase(BaseModel):
     first_name: str = Field(..., min_length=2, max_length=50)
     last_name: str = Field(..., min_length=2, max_length=50)
@@ -33,6 +37,13 @@ class DoctorBase(BaseModel):
     email: str = Field(..., min_length=5, max_length=100)
     phone: str = Field(..., min_length=7, max_length=20)
     clinic_name: Optional[str] = Field(default=None, max_length=120)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if "@" not in value or "." not in value.split("@")[-1]:
+            raise ValueError("email must be a valid email address")
+        return value
 
 
 class DoctorCreate(DoctorBase):
@@ -52,6 +63,13 @@ class PatientBase(BaseModel):
     email: str = Field(..., min_length=5, max_length=100)
     phone: str = Field(..., min_length=7, max_length=20)
     address: str = Field(..., min_length=5, max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if "@" not in value or "." not in value.split("@")[-1]:
+            raise ValueError("email must be a valid email address")
+        return value
 
 
 class PatientCreate(PatientBase):
@@ -252,6 +270,10 @@ async def list_doctors() -> List[Doctor]:
     tags=["Doctors"],
 )
 async def create_doctor(payload: DoctorCreate) -> Doctor:
+    normalized_email = payload.email.lower()
+    if any(doctor.email.lower() == normalized_email for doctor in doctors_db.values()):
+        raise HTTPException(status_code=400, detail="Doctor with this email already exists")
+
     doctor_id = max(doctors_db.keys(), default=0) + 1
     doctor = Doctor(id=doctor_id, **payload.model_dump())
     doctors_db[doctor_id] = doctor
@@ -278,6 +300,10 @@ async def list_patients() -> List[Patient]:
     tags=["Patients"],
 )
 async def create_patient(payload: PatientCreate) -> Patient:
+    normalized_email = payload.email.lower()
+    if any(patient.email.lower() == normalized_email for patient in patients_db.values()):
+        raise HTTPException(status_code=400, detail="Patient with this email already exists")
+
     patient_id = max(patients_db.keys(), default=0) + 1
     patient = Patient(id=patient_id, **payload.model_dump())
     patients_db[patient_id] = patient
@@ -342,12 +368,20 @@ async def get_appointment(appointment_id: int) -> Appointment:
     response_model=Appointment,
     tags=["Appointments"],
 )
-async def update_appointment_status(appointment_id: int, status_value: AppointmentStatus) -> Appointment:
+async def update_appointment_status(
+    appointment_id: int,
+    payload: AppointmentStatusUpdate | None = None,
+    status_value: AppointmentStatus | None = None,
+) -> Appointment:
     appointment = appointments_db.get(appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    appointment.status = status_value
+    resolved_status = payload.status if payload is not None else status_value
+    if resolved_status is None:
+        raise HTTPException(status_code=400, detail="Status is required")
+
+    appointment.status = resolved_status
     appointment.updated_at = datetime.utcnow()
     appointments_db[appointment_id] = appointment
     return appointment

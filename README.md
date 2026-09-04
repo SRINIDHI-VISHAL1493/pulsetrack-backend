@@ -116,6 +116,32 @@ The API uses Pydantic models to validate request and response payloads for all c
 - HTTP 404 when a doctor, patient, appointment, or prescription is missing
 - HTTP 400 validation errors for invalid relation mapping or malformed payloads
 
+## Task 4: Create workflow
+
+This milestone completes the core create workflow for the healthcare backend. It includes validation, persistence for valid records, and structured 4xx responses for invalid requests.
+
+### Completed workflow
+
+- Create doctor profiles via `POST /api/v1/doctors`
+- Create patient profiles via `POST /api/v1/patients`
+- Create appointment records via `POST /api/v1/appointments`
+- Create prescriptions via `POST /api/v1/prescriptions`
+- Update appointment status via `PATCH /api/v1/appointments/{appointment_id}/status`
+
+### Completion guide
+
+- Valid data is persisted
+- Invalid input returns useful 4xx errors
+- Response payloads do not expose internal fields
+
+### Validation rules
+
+- Required doctor and patient fields are enforced
+- Email format and length are validated
+- Appointment status must match the supported enum values
+- Prescription must reference a valid doctor, patient, and appointment pair
+- A doctor/patient cannot be created with a duplicate email
+
 ## Run locally
 
 ```bash
@@ -169,4 +195,4 @@ POST http://127.0.0.1:8000/api/v1/prescriptions
 
 ## Project status
 
-The repository currently includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, and the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support.
+The repository now includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support, and the Task 4 create workflow for healthcare records with validation and status updates.
