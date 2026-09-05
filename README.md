@@ -193,6 +193,18 @@ POST http://127.0.0.1:8000/api/v1/appointments
 POST http://127.0.0.1:8000/api/v1/prescriptions
 ```
 
-## Project status
+## Task 5: Read workflow completion
 
-The repository now includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support, and the Task 4 create workflow for healthcare records with validation and status updates.
+This milestone completes the read and update workflow for the PulseTrack healthcare API. It ensures the backend supports responsive list queries, reliable detail lookups, and consistent status updates for scheduled appointments.
+
+### Completion guide
+
+- List endpoints are paginated via `skip` and `limit`
+- Detail endpoints are scoped to the correct resource ID
+- Missing records return a `404` response
+- Appointment status updates accept both JSON payloads and query-parameter input
+- Read workflow behavior is covered by automated tests
+
+### Project status
+
+The repository now includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support, the Task 4 create workflow for healthcare records with validation and status updates, and the Task 5 completion of the read workflow with pagination and 404 validation.
