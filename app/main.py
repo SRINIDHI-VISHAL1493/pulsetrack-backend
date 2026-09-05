@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -259,8 +259,11 @@ async def favicon() -> FileResponse:
 
 
 @app.get("/api/v1/doctors", response_model=List[Doctor], tags=["Doctors"])
-async def list_doctors() -> List[Doctor]:
-    return list(doctors_db.values())
+async def list_doctors(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1),
+) -> List[Doctor]:
+    return list(doctors_db.values())[skip : skip + limit]
 
 
 @app.post(
@@ -289,8 +292,11 @@ async def get_doctor(doctor_id: int) -> Doctor:
 
 
 @app.get("/api/v1/patients", response_model=List[Patient], tags=["Patients"])
-async def list_patients() -> List[Patient]:
-    return list(patients_db.values())
+async def list_patients(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1),
+) -> List[Patient]:
+    return list(patients_db.values())[skip : skip + limit]
 
 
 @app.post(
@@ -323,8 +329,11 @@ async def get_patient(patient_id: int) -> Patient:
     response_model=List[Appointment],
     tags=["Appointments"],
 )
-async def list_appointments() -> List[Appointment]:
-    return list(appointments_db.values())
+async def list_appointments(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1),
+) -> List[Appointment]:
+    return list(appointments_db.values())[skip : skip + limit]
 
 
 @app.post(
@@ -371,13 +380,13 @@ async def get_appointment(appointment_id: int) -> Appointment:
 async def update_appointment_status(
     appointment_id: int,
     payload: AppointmentStatusUpdate | None = None,
-    status_value: AppointmentStatus | None = None,
+    status: AppointmentStatus | None = None,
 ) -> Appointment:
     appointment = appointments_db.get(appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    resolved_status = payload.status if payload is not None else status_value
+    resolved_status = payload.status if payload is not None else status
     if resolved_status is None:
         raise HTTPException(status_code=400, detail="Status is required")
 
@@ -392,8 +401,11 @@ async def update_appointment_status(
     response_model=List[Prescription],
     tags=["Prescriptions"],
 )
-async def list_prescriptions() -> List[Prescription]:
-    return list(prescriptions_db.values())
+async def list_prescriptions(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1),
+) -> List[Prescription]:
+    return list(prescriptions_db.values())[skip : skip + limit]
 
 
 @app.post(
