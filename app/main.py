@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from contextlib import asynccontextmanager
+from datetime import date, datetime, time, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -28,6 +29,26 @@ class Medication(BaseModel):
 
 class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
+
+
+class AppointmentUpdate(BaseModel):
+    doctor_id: int | None = Field(default=None, gt=0)
+    patient_id: int | None = Field(default=None, gt=0)
+    appointment_date: date | None = None
+    appointment_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    reason: str | None = Field(default=None, min_length=3, max_length=255)
+    status: AppointmentStatus | None = None
+
+    @field_validator("appointment_time")
+    @classmethod
+    def normalize_time(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        try:
+            time.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("appointment_time must be in HH:MM format") from exc
+        return value
 
 
 class DoctorBase(BaseModel):
@@ -130,16 +151,18 @@ class Prescription(PrescriptionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await init_db()
+    yield
+
+
 app = FastAPI(
     title="PulseTrack",
     description="Doctor-patient appointment and prescription API",
     version="0.2.0",
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    await init_db()
 
 
 doctors_db: Dict[int, Doctor] = {}
@@ -196,7 +219,7 @@ def seed_demo_data() -> None:
     patients_db[patient_one.id] = patient_one
     patients_db[patient_two.id] = patient_two
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     appointment_one = Appointment(
         id=1,
         doctor_id=1,
@@ -349,7 +372,7 @@ async def create_appointment(payload: AppointmentCreate) -> Appointment:
         raise HTTPException(status_code=404, detail="Patient not found")
 
     appointment_id = max(appointments_db.keys(), default=0) + 1
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     appointment = Appointment(
         id=appointment_id,
         created_at=created_at,
@@ -373,6 +396,34 @@ async def get_appointment(appointment_id: int) -> Appointment:
 
 
 @app.patch(
+    "/api/v1/appointments/{appointment_id}",
+    response_model=Appointment,
+    tags=["Appointments"],
+)
+async def update_appointment(
+    appointment_id: int,
+    payload: AppointmentUpdate,
+) -> Appointment:
+    appointment = appointments_db.get(appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if "doctor_id" in update_data and update_data["doctor_id"] is not None:
+        if update_data["doctor_id"] not in doctors_db:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+    if "patient_id" in update_data and update_data["patient_id"] is not None:
+        if update_data["patient_id"] not in patients_db:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+    for field, value in update_data.items():
+        setattr(appointment, field, value)
+    appointment.updated_at = datetime.now(timezone.utc)
+    appointments_db[appointment_id] = appointment
+    return appointment
+
+
+@app.patch(
     "/api/v1/appointments/{appointment_id}/status",
     response_model=Appointment,
     tags=["Appointments"],
@@ -391,9 +442,26 @@ async def update_appointment_status(
         raise HTTPException(status_code=400, detail="Status is required")
 
     appointment.status = resolved_status
-    appointment.updated_at = datetime.utcnow()
+    appointment.updated_at = datetime.now(timezone.utc)
     appointments_db[appointment_id] = appointment
     return appointment
+
+
+@app.delete(
+    "/api/v1/appointments/{appointment_id}",
+    tags=["Appointments"],
+)
+async def delete_appointment(appointment_id: int) -> dict:
+    appointment = appointments_db.get(appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    for prescription_id, prescription in list(prescriptions_db.items()):
+        if prescription.appointment_id == appointment_id:
+            del prescriptions_db[prescription_id]
+
+    del appointments_db[appointment_id]
+    return {"detail": "Appointment deleted successfully"}
 
 
 @app.get(
@@ -432,7 +500,7 @@ async def create_prescription(payload: PrescriptionCreate) -> Prescription:
     prescription_id = max(prescriptions_db.keys(), default=0) + 1
     prescription = Prescription(
         id=prescription_id,
-        issued_at=datetime.utcnow(),
+        issued_at=datetime.now(timezone.utc),
         **payload.model_dump(),
     )
     prescriptions_db[prescription_id] = prescription
@@ -449,6 +517,19 @@ async def get_prescription(prescription_id: int) -> Prescription:
     if not prescription:
         raise HTTPException(status_code=404, detail="Prescription not found")
     return prescription
+
+
+@app.delete(
+    "/api/v1/prescriptions/{prescription_id}",
+    tags=["Prescriptions"],
+)
+async def delete_prescription(prescription_id: int) -> dict:
+    prescription = prescriptions_db.get(prescription_id)
+    if not prescription:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+
+    del prescriptions_db[prescription_id]
+    return {"detail": "Prescription deleted successfully"}
 
 
 if __name__ == "__main__":

@@ -101,13 +101,16 @@ The API uses Pydantic models to validate request and response payloads for all c
 - `GET /api/v1/appointments` — list all appointments
 - `POST /api/v1/appointments` — schedule a consultation
 - `GET /api/v1/appointments/{appointment_id}` — fetch one appointment
+- `PATCH /api/v1/appointments/{appointment_id}` — update appointment details
 - `PATCH /api/v1/appointments/{appointment_id}/status` — update appointment status
+- `DELETE /api/v1/appointments/{appointment_id}` — remove an appointment and any related prescriptions
 
 #### Prescriptions
 
 - `GET /api/v1/prescriptions` — list all prescriptions
 - `POST /api/v1/prescriptions` — create a prescription after an appointment
 - `GET /api/v1/prescriptions/{prescription_id}` — fetch one prescription
+- `DELETE /api/v1/prescriptions/{prescription_id}` — delete a prescription
 
 ### Success and error handling
 
@@ -205,6 +208,17 @@ This milestone completes the read and update workflow for the PulseTrack healthc
 - Appointment status updates accept both JSON payloads and query-parameter input
 - Read workflow behavior is covered by automated tests
 
+## Task 6: Update and delete workflow
+
+This milestone adds the final lifecycle controls to the PulseTrack healthcare API. It lets teams make partial updates to appointment details, change status with a dedicated endpoint, and safely remove appointments or prescriptions while keeping the data model consistent.
+
+### Completed workflow
+
+- Update appointment details via `PATCH /api/v1/appointments/{appointment_id}`
+- Update appointment status via `PATCH /api/v1/appointments/{appointment_id}/status`
+- Delete an appointment and remove related prescriptions via `DELETE /api/v1/appointments/{appointment_id}`
+- Delete a prescription via `DELETE /api/v1/prescriptions/{prescription_id}`
+
 ### Project status
 
-The repository now includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support, the Task 4 create workflow for healthcare records with validation and status updates, and the Task 5 completion of the read workflow with pagination and 404 validation.
+The repository now includes the backend foundation, the Task 2 API design for doctors, patients, appointments, and prescriptions, the Task 3 database setup with SQLAlchemy ORM models, async database access, and Alembic migration support, the Task 4 create workflow for healthcare records with validation and status updates, the Task 5 completion of the read workflow with pagination and 404 validation, and the Task 6 update-and-delete workflow with safe removal and partial appointment updates.
