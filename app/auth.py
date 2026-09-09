@@ -18,6 +18,18 @@ AUTH_PASSWORD = os.getenv("PULSETRACK_AUTH_PASSWORD", "pulsetrack-dev-password")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("PULSETRACK_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 
+def _load_users() -> dict[str, tuple[str, str]]:
+    users = {AUTH_USERNAME: (AUTH_PASSWORD, "user")}
+    for entry in os.getenv("PULSETRACK_AUTH_USERS", "").split(","):
+        parts = entry.strip().split(":", 2)
+        if len(parts) >= 2 and parts[0]:
+            users[parts[0]] = (parts[1], parts[2] if len(parts) == 3 else "user")
+    return users
+
+
+AUTH_USERS = _load_users()
+
+
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, max_length=200)
@@ -60,9 +72,12 @@ def create_access_token(username: str = AUTH_USERNAME, role: str = "user") -> st
 
 
 def authenticate_user(username: str, password: str) -> bool:
-    return hmac.compare_digest(username, AUTH_USERNAME) and hmac.compare_digest(
-        password, AUTH_PASSWORD
-    )
+    configured_user = AUTH_USERS.get(username)
+    return configured_user is not None and hmac.compare_digest(password, configured_user[0])
+
+
+def get_user_role(username: str) -> str:
+    return AUTH_USERS.get(username, ("", "user"))[1]
 
 
 def decode_access_token(token: str) -> AuthenticatedUser:

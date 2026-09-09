@@ -187,6 +187,12 @@ export PULSETRACK_AUTH_PASSWORD="replace-with-a-strong-password"
 export PULSETRACK_ACCESS_TOKEN_EXPIRE_MINUTES="60"
 ```
 
+For multiple users, optionally provide comma-separated `username:password:role` entries:
+
+```bash
+export PULSETRACK_AUTH_USERS="demo:replace-with-a-strong-password:user,clinician:another-strong-password:doctor"
+```
+
 Request a token:
 
 ```bash
@@ -196,6 +202,10 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/token \
 ```
 
 Use the returned `access_token` for protected requests with `Authorization: Bearer <token>`. Tokens use HMAC-SHA256 signing and are rejected after expiry or tampering.
+
+## Task 8: Authorization
+
+Private doctor, patient, appointment, and prescription queries are scoped to the authenticated user. Cross-user detail, update, and delete requests return `403 Forbidden`, while collection endpoints return only records owned by the current user. New records inherit the authenticated user as their owner, and related records must also belong to that user.
 ```
 
 ### API design examples

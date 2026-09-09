@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.auth import create_access_token
 from app.main import app
 
 
@@ -50,3 +51,25 @@ def test_tampered_token_is_rejected():
     )
 
     assert protected_response.status_code == 401
+
+
+def test_cross_user_record_access_is_forbidden_and_lists_are_scoped():
+    owner_client = TestClient(
+        app, headers={"Authorization": f"Bearer {create_access_token('demo')}"}
+    )
+    other_user_client = TestClient(
+        app, headers={"Authorization": f"Bearer {create_access_token('other-user')}"}
+    )
+
+    assert other_user_client.get("/api/v1/doctors").json() == []
+    response = other_user_client.get("/api/v1/doctors/1")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "You do not own this doctor"
+
+    update_response = other_user_client.patch(
+        "/api/v1/appointments/1/status",
+        json={"status": "cancelled"},
+    )
+    assert update_response.status_code == 403
+    assert owner_client.get("/api/v1/appointments/1").json()["status"] == "confirmed"
