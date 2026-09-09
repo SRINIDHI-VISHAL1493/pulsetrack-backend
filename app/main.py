@@ -5,11 +5,19 @@ from datetime import date, datetime, time, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app import models  # noqa: F401  # registers SQLAlchemy models
+from app.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    LoginRequest,
+    TokenResponse,
+    authenticate_request,
+    authenticate_user,
+    create_access_token,
+)
 from app.database import init_db
 
 
@@ -165,6 +173,34 @@ app = FastAPI(
 )
 
 
+PUBLIC_PATHS = {
+    "/",
+    "/health",
+    "/api/v1/health",
+    "/api/v1/auth/token",
+    "/favicon.ico",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
+
+
+@app.middleware("http")
+async def require_authentication(request: Request, call_next):
+    if request.url.path not in PUBLIC_PATHS and not request.url.path.startswith(
+        ("/docs/", "/redoc/")
+    ):
+        try:
+            authenticate_request(request.headers.get("Authorization"))
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+    return await call_next(request)
+
+
 doctors_db: Dict[int, Doctor] = {}
 patients_db: Dict[int, Patient] = {}
 appointments_db: Dict[int, Appointment] = {}
@@ -274,6 +310,22 @@ async def health() -> dict:
 @app.get("/api/v1/health")
 async def api_health() -> dict:
     return {"status": "ok", "service": "PulseTrack", "version": app.version}
+
+
+@app.post("/api/v1/auth/token", response_model=TokenResponse, tags=["Authentication"])
+async def issue_access_token(payload: LoginRequest) -> TokenResponse:
+    if not authenticate_user(payload.username, payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    expires_in = max(0, ACCESS_TOKEN_EXPIRE_MINUTES) * 60
+    return TokenResponse(
+        access_token=create_access_token(payload.username),
+        expires_in=expires_in,
+    )
 
 
 @app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)

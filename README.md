@@ -159,13 +159,7 @@ uvicorn app.main:app --reload
 
 ```text
 http://127.0.0.1:8000/
-```
-
-Example response:
-
-```json
-{
-  "app": "PulseTrack",
+- Signed bearer-token authentication for protected API routes
   "message": "Doctor-patient appointment and prescription API",
   "status": "ok"
 }
@@ -173,17 +167,35 @@ Example response:
 
 ### Health check
 
-```text
-http://127.0.0.1:8000/health
-```
-
-Example response:
 
 ```json
 {
   "status": "ok",
   "service": "PulseTrack"
 }
+
+## Task 7: Authentication
+
+Domain endpoints require a signed bearer token. Health endpoints, API documentation, and the token endpoint remain public.
+
+Set these environment variables before starting the service:
+
+```bash
+export PULSETRACK_AUTH_SECRET_KEY="replace-with-a-long-random-secret"
+export PULSETRACK_AUTH_USERNAME="demo"
+export PULSETRACK_AUTH_PASSWORD="replace-with-a-strong-password"
+export PULSETRACK_ACCESS_TOKEN_EXPIRE_MINUTES="60"
+```
+
+Request a token:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo","password":"replace-with-a-strong-password"}'
+```
+
+Use the returned `access_token` for protected requests with `Authorization: Bearer <token>`. Tokens use HMAC-SHA256 signing and are rejected after expiry or tampering.
 ```
 
 ### API design examples

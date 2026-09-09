@@ -1,9 +1,10 @@
 from fastapi.testclient import TestClient
 
+from app.auth import create_access_token
 from app.main import app
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"Authorization": f"Bearer {create_access_token()}"})
 
 
 def test_create_doctor_persists_and_is_fetchable():
