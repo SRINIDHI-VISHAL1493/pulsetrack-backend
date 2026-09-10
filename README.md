@@ -129,6 +129,19 @@ The read workflow provides paginated collection queries and reliable detail look
 - Appointment status updates accept JSON payloads and query parameters
 - Read behavior is covered by automated tests
 
+## Task 5A: Search and filters
+
+The search and filter workflow enables efficient querying without loading unnecessary records into application memory.
+
+### Completion guide
+
+- Filters execute in SQL at the database layer instead of in Python after retrieval
+- Empty result sets return a valid empty list response rather than errors or null values
+- Pagination remains correct when filters are active: `skip` and `limit` apply to the filtered result set
+- Filter inputs are validated and rejected clearly when malformed
+- Results remain deterministic through a stable ordering such as newest-first or ID order
+- Search behavior is covered by automated tests for both populated and empty responses
+
 ## Task 6: Update and delete workflow
 
 The update and delete workflow supports partial appointment updates, status changes, and safe record removal.
