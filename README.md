@@ -2,6 +2,10 @@
 
 PulseTrack is a FastAPI backend for doctor-patient appointment and prescription management. It is being developed as part of a Python backend internship and evolves through an ordered set of implementation milestones.
 
+## Current status
+
+The application has reached a stable backend milestone with working healthcare workflows, authentication, authorization, and a mockable external service integration layer. The project includes automated validation for core CRUD flows, permissions, pagination, search/filter behavior, and upstream integration failure handling.
+
 ## Features
 
 - FastAPI application scaffold
@@ -11,6 +15,9 @@ PulseTrack is a FastAPI backend for doctor-patient appointment and prescription 
 - Signed bearer-token authentication
 - Owner-scoped authorization for private records
 - Request validation and paginated list endpoints
+- Search and filter support on collection endpoints
+- External integration adapter pattern with timeout and failure handling
+- Automated tests covering API and integration behavior
 
 ## Project goals
 
@@ -19,6 +26,7 @@ PulseTrack is a FastAPI backend for doctor-patient appointment and prescription 
 - Enable appointment scheduling and tracking
 - Manage prescription creation and retrieval
 - Provide structured APIs for frontend integration
+- Encapsulate external service calls in a clean adapter layer
 
 ## Task 1: Foundation and environment
 
@@ -212,6 +220,14 @@ The service integration layer keeps external HTTP dependency logic out of route 
 - Route code stays focused on HTTP concerns instead of network details
 - Integration can be mocked in tests by patching the fetch function or service client
 - Degraded responses remain safe and predictable even when the upstream is unavailable
+- The external service can be configured via environment variables for URL and timeout settings
+
+### Example upstream configuration
+
+```bash
+export PULSETRACK_EXTERNAL_SERVICE_URL="https://api.provider.example"
+export PULSETRACK_EXTERNAL_SERVICE_TIMEOUT_SECONDS="5.0"
+```
 
 ### Common endpoints
 
