@@ -202,12 +202,24 @@ Private doctor, patient, appointment, and prescription queries are scoped to the
 - Related records must also belong to that user
 - Ownership behavior is covered by automated tests
 
-## Common endpoints
+## Task 9: Service integration
+
+The service integration layer keeps external HTTP dependency logic out of route handlers. A dedicated client handles request timeouts, stuck upstream calls, and non-2xx failures, while the route focuses on API response shaping and error translation.
+
+### Completion guide
+
+- Timeouts and failures are handled explicitly by the service client
+- Route code stays focused on HTTP concerns instead of network details
+- Integration can be mocked in tests by patching the fetch function or service client
+- Degraded responses remain safe and predictable even when the upstream is unavailable
+
+### Common endpoints
 
 ```text
 GET http://127.0.0.1:8000/
 GET http://127.0.0.1:8000/health
 GET http://127.0.0.1:8000/api/v1/health
+GET http://127.0.0.1:8000/api/v1/service-status
 POST http://127.0.0.1:8000/api/v1/auth/token
 ```
 

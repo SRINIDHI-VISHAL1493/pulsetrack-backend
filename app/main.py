@@ -21,6 +21,7 @@ from app.auth import (
     get_user_role,
 )
 from app.database import init_db
+from app.services import ExternalServiceError, ExternalServiceTimeoutError, fetch_external_status
 
 
 class AppointmentStatus(str, Enum):
@@ -179,6 +180,7 @@ PUBLIC_PATHS = {
     "/",
     "/health",
     "/api/v1/health",
+    "/api/v1/service-status",
     "/api/v1/auth/token",
     "/favicon.ico",
     "/docs",
@@ -228,6 +230,75 @@ def owned_record(
     if ownership.get(record_id) != username:
         raise HTTPException(status_code=403, detail=f"You do not own this {label.lower()}")
     return record
+
+
+def normalize_search_term(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
+
+
+def matches_search(record: object, candidate_fields: list[str], search_term: str | None) -> bool:
+    if search_term is None:
+        return True
+    for field_name in candidate_fields:
+        value = getattr(record, field_name, None)
+        if value is None:
+            continue
+        if isinstance(value, (list, tuple)):
+            serializable = " ".join(str(item) for item in value)
+        else:
+            serializable = str(value)
+        if search_term in serializable.lower():
+            return True
+    return False
+
+
+def filter_owned_records(
+    collection: dict[int, object],
+    ownership: dict[int, str],
+    username: str,
+    *,
+    search: str | None = None,
+    **filters: object,
+) -> list[object]:
+    term = normalize_search_term(search)
+    results: list[object] = []
+
+    for record_id, record in sorted(collection.items()):
+        if ownership.get(record_id) != username:
+            continue
+        if not all(
+            getattr(record, key, None) == value
+            for key, value in filters.items()
+            if value is not None
+        ):
+            continue
+        if term is not None and not matches_search(record, list(filters.keys()) or [], term):
+            # Search should inspect actual content fields, not filter keys.
+            pass
+        if term is not None:
+            candidate_values = [
+                getattr(record, "first_name", None),
+                getattr(record, "last_name", None),
+                getattr(record, "email", None),
+                getattr(record, "phone", None),
+                getattr(record, "specialization", None),
+                getattr(record, "clinic_name", None),
+                getattr(record, "patient_id", None),
+                getattr(record, "doctor_id", None),
+                getattr(record, "diagnosis", None),
+                getattr(record, "instructions", None),
+                getattr(record, "reason", None),
+                getattr(record, "address", None),
+                getattr(record, "status", None),
+            ]
+            if not any(term in str(value).lower() for value in candidate_values if value is not None):
+                continue
+        results.append(record)
+
+    return results
 
 
 def seed_demo_data() -> None:
@@ -339,6 +410,30 @@ async def api_health() -> dict:
     return {"status": "ok", "service": "PulseTrack", "version": app.version}
 
 
+@app.get("/api/v1/service-status", tags=["Integration"])
+async def service_status() -> dict:
+    try:
+        external_status = fetch_external_status()
+        if isinstance(external_status, dict) and (
+            "provider" in external_status or "service" in external_status or "status" in external_status
+        ):
+            return {"status": "ok", "external_service": external_status}
+        return {
+            "status": "ok",
+            "external_service": {"status": "healthy", "details": external_status},
+        }
+    except ExternalServiceTimeoutError:
+        return {
+            "status": "degraded",
+            "external_service": {"status": "timeout", "details": {"error": "Upstream request timed out"}},
+        }
+    except ExternalServiceError:
+        return {
+            "status": "degraded",
+            "external_service": {"status": "error", "details": {"error": "Upstream request failed"}},
+        }
+
+
 @app.post("/api/v1/auth/token", response_model=TokenResponse, tags=["Authentication"])
 async def issue_access_token(payload: LoginRequest) -> TokenResponse:
     if not authenticate_user(payload.username, payload.password):
@@ -365,13 +460,16 @@ async def list_doctors(
     request: Request,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1),
+    search: str | None = Query(default=None, min_length=1),
 ) -> List[Doctor]:
     username = current_user(request)
-    return [
-        doctor
-        for doctor_id, doctor in doctors_db.items()
-        if ownership_db["doctors"].get(doctor_id) == username
-    ][skip : skip + limit]
+    records = filter_owned_records(
+        doctors_db,
+        ownership_db["doctors"],
+        username,
+        search=search,
+    )
+    return records[skip : skip + limit]
 
 
 @app.post(
@@ -404,13 +502,16 @@ async def list_patients(
     request: Request,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1),
+    search: str | None = Query(default=None, min_length=1),
 ) -> List[Patient]:
     username = current_user(request)
-    return [
-        patient
-        for patient_id, patient in patients_db.items()
-        if ownership_db["patients"].get(patient_id) == username
-    ][skip : skip + limit]
+    records = filter_owned_records(
+        patients_db,
+        ownership_db["patients"],
+        username,
+        search=search,
+    )
+    return records[skip : skip + limit]
 
 
 @app.post(
@@ -447,13 +548,22 @@ async def list_appointments(
     request: Request,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1),
+    search: str | None = Query(default=None, min_length=1),
+    status: AppointmentStatus | None = Query(default=None),
+    doctor_id: int | None = Query(default=None, ge=1),
+    patient_id: int | None = Query(default=None, ge=1),
 ) -> List[Appointment]:
     username = current_user(request)
-    return [
-        appointment
-        for appointment_id, appointment in appointments_db.items()
-        if ownership_db["appointments"].get(appointment_id) == username
-    ][skip : skip + limit]
+    records = filter_owned_records(
+        appointments_db,
+        ownership_db["appointments"],
+        username,
+        search=search,
+        status=status,
+        doctor_id=doctor_id,
+        patient_id=patient_id,
+    )
+    return records[skip : skip + limit]
 
 
 @app.post(
@@ -596,13 +706,22 @@ async def list_prescriptions(
     request: Request,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1),
+    search: str | None = Query(default=None, min_length=1),
+    doctor_id: int | None = Query(default=None, ge=1),
+    patient_id: int | None = Query(default=None, ge=1),
+    appointment_id: int | None = Query(default=None, ge=1),
 ) -> List[Prescription]:
     username = current_user(request)
-    return [
-        prescription
-        for prescription_id, prescription in prescriptions_db.items()
-        if ownership_db["prescriptions"].get(prescription_id) == username
-    ][skip : skip + limit]
+    records = filter_owned_records(
+        prescriptions_db,
+        ownership_db["prescriptions"],
+        username,
+        search=search,
+        doctor_id=doctor_id,
+        patient_id=patient_id,
+        appointment_id=appointment_id,
+    )
+    return records[skip : skip + limit]
 
 
 @app.post(
