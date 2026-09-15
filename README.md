@@ -239,6 +239,18 @@ GET http://127.0.0.1:8000/api/v1/service-status
 POST http://127.0.0.1:8000/api/v1/auth/token
 ```
 
+## Task 11: Reliability
+
+The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
+
+### Completion guide
+
+- Every response includes an `X-Request-ID` header for support and log correlation
+- Validation failures return a stable error shape with actionable field details
+- Unexpected server errors are logged with the request ID and return a safe generic message
+- External service failures include invalid or non-object upstream payloads
+- Database session scopes roll back failed transactions before re-raising the original error
+
 ## Validation
 
 ```bash

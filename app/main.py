@@ -3,9 +3,12 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import date, datetime, time, timezone
 from enum import Enum
+import logging
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -22,6 +25,9 @@ from app.auth import (
 )
 from app.database import init_db
 from app.services import ExternalServiceError, ExternalServiceTimeoutError, fetch_external_status
+
+
+logger = logging.getLogger("pulsetrack.api")
 
 
 class AppointmentStatus(str, Enum):
@@ -191,6 +197,8 @@ PUBLIC_PATHS = {
 
 @app.middleware("http")
 async def require_authentication(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    request.state.request_id = request_id
     if request.url.path not in PUBLIC_PATHS and not request.url.path.startswith(
         ("/docs/", "/redoc/")
     ):
@@ -200,9 +208,56 @@ async def require_authentication(request: Request, call_next):
             return JSONResponse(
                 status_code=exc.status_code,
                 content={"detail": exc.detail},
-                headers=exc.headers,
+                headers={**(exc.headers or {}), "X-Request-ID": request_id},
             )
-    return await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "request_failed",
+            extra={"request_id": request_id, "method": request.method, "path": request.url.path},
+        )
+        raise
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request_completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+        },
+    )
+    return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", str(uuid4()))
+    logger.warning(
+        "request_validation_failed",
+        extra={"request_id": request_id, "path": request.url.path, "errors": exc.errors()},
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": "Request validation failed", "errors": exc.errors(), "request_id": request_id},
+        headers={"X-Request-ID": request_id},
+    )
+
+
+@app.exception_handler(Exception)
+async def unexpected_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", str(uuid4()))
+    logger.exception(
+        "unhandled_request_error",
+        extra={"request_id": request_id, "method": request.method, "path": request.url.path},
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error", "request_id": request_id},
+        headers={"X-Request-ID": request_id},
+    )
 
 
 doctors_db: Dict[int, Doctor] = {}

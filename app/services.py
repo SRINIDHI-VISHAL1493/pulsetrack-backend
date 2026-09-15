@@ -44,16 +44,24 @@ class ExternalServiceClient:
     @classmethod
     def get_status(cls) -> dict:
         cls.refresh_config()
-        client = cls._build_client(timeout=cls.TIMEOUT_SECONDS)
+        client = None
         try:
+            client = cls._build_client(timeout=cls.TIMEOUT_SECONDS)
             response = cls._resolve_response(client, f"{cls.BASE_URL}/status", cls.TIMEOUT_SECONDS)
             if hasattr(response, "raise_for_status"):
                 response.raise_for_status()
-            return response.json()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ExternalServiceError("External service returned an invalid payload")
+            return payload
         except httpx.TimeoutException as exc:
             raise ExternalServiceTimeoutError("External service timed out") from exc
         except httpx.HTTPError as exc:
             raise ExternalServiceError("External service request failed") from exc
+        except ExternalServiceError:
+            raise
+        except (TypeError, ValueError) as exc:
+            raise ExternalServiceError("External service returned an invalid response") from exc
         finally:
             close = getattr(client, "close", None)
             if callable(close):
