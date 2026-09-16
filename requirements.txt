@@ -5,4 +5,5 @@ alembic
 asyncpg
 aiosqlite
 httpx
+httpx2
 pytest

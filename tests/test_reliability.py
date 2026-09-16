@@ -39,6 +39,26 @@ def test_validation_error_contains_request_id_and_field_details():
     assert response.json()["errors"]
 
 
+def test_invalid_appointment_input_is_rejected_without_persistence():
+    before = authenticated_client.get("/api/v1/appointments").json()
+
+    response = authenticated_client.post(
+        "/api/v1/appointments",
+        json={
+            "doctor_id": 1,
+            "patient_id": 1,
+            "appointment_date": "2026-09-20",
+            "appointment_time": "25:00",
+            "reason": "Invalid time should fail",
+            "status": "scheduled",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Request validation failed"
+    assert authenticated_client.get("/api/v1/appointments").json() == before
+
+
 def test_external_service_rejects_non_object_payload_and_closes_client(monkeypatch):
     class FakeResponse:
         def raise_for_status(self):
@@ -63,6 +83,46 @@ def test_external_service_rejects_non_object_payload_and_closes_client(monkeypat
         services.fetch_external_status()
 
     assert fake_client.closed is True
+
+
+def test_service_status_maps_timeout_to_degraded_response(monkeypatch):
+    def fail_with_timeout():
+        raise services.ExternalServiceTimeoutError("upstream timed out")
+
+    monkeypatch.setattr("app.main.fetch_external_status", fail_with_timeout)
+
+    response = client.get(
+        "/api/v1/service-status",
+        headers={"X-Request-ID": "service-timeout-check"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "service-timeout-check"
+    assert response.json() == {
+        "status": "degraded",
+        "external_service": {
+            "status": "timeout",
+            "details": {"error": "Upstream request timed out"},
+        },
+    }
+
+
+def test_service_status_maps_upstream_failure_to_degraded_response(monkeypatch):
+    def fail_with_error():
+        raise services.ExternalServiceError("upstream failed")
+
+    monkeypatch.setattr("app.main.fetch_external_status", fail_with_error)
+
+    response = client.get("/api/v1/service-status")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "degraded",
+        "external_service": {
+            "status": "error",
+            "details": {"error": "Upstream request failed"},
+        },
+    }
 
 
 def test_session_scope_rolls_back_when_operation_fails(monkeypatch):

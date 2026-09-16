@@ -73,3 +73,8 @@ def test_cross_user_record_access_is_forbidden_and_lists_are_scoped():
     )
     assert update_response.status_code == 403
     assert owner_client.get("/api/v1/appointments/1").json()["status"] == "confirmed"
+
+    assert other_user_client.get("/api/v1/patients/1").status_code == 403
+    assert other_user_client.get("/api/v1/prescriptions/1").status_code == 403
+    assert other_user_client.delete("/api/v1/prescriptions/1").status_code == 403
+    assert owner_client.get("/api/v1/prescriptions/1").status_code == 200
