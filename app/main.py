@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -28,6 +29,17 @@ from app.services import ExternalServiceError, ExternalServiceTimeoutError, fetc
 
 
 logger = logging.getLogger("pulsetrack.api")
+
+
+OPENAPI_TAGS = [
+    {"name": "Health", "description": "Service liveness and readiness checks."},
+    {"name": "Authentication", "description": "Bearer token issuance and authentication."},
+    {"name": "Doctors", "description": "Doctor profile management."},
+    {"name": "Patients", "description": "Patient record management."},
+    {"name": "Appointments", "description": "Appointment scheduling and status management."},
+    {"name": "Prescriptions", "description": "Prescription creation and retrieval."},
+    {"name": "Integration", "description": "External service health and dependency status."},
+]
 
 
 class AppointmentStatus(str, Enum):
@@ -176,10 +188,48 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="PulseTrack",
-    description="Doctor-patient appointment and prescription API",
-    version="0.2.0",
+    description=(
+        "A versioned API for doctor-patient appointments, prescriptions, "
+        "authentication, authorization, and external service health."
+    ),
+    version="0.3.0",
+    contact={"name": "PulseTrack API Team"},
+    license_info={"name": "Internal project"},
+    openapi_tags=OPENAPI_TAGS,
     lifespan=lifespan,
 )
+
+
+def custom_openapi() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=OPENAPI_TAGS,
+    )
+    schema.setdefault("components", {})["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT-like HMAC token",
+        }
+    }
+    for path, operations in schema["paths"].items():
+        if path in PUBLIC_PATHS:
+            continue
+        for operation in operations.values():
+            if isinstance(operation, dict):
+                operation["security"] = [{"BearerAuth": []}]
+
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi
 
 
 PUBLIC_PATHS = {
@@ -446,7 +496,7 @@ def seed_demo_data() -> None:
 seed_demo_data()
 
 
-@app.get("/")
+@app.get("/", tags=["Health"], summary="Get API service information")
 async def root() -> dict:
     return {
         "app": "PulseTrack",
@@ -455,12 +505,12 @@ async def root() -> dict:
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"], summary="Check service health")
 async def health() -> dict:
     return {"status": "ok", "service": "PulseTrack"}
 
 
-@app.get("/api/v1/health")
+@app.get("/api/v1/health", tags=["Health"], summary="Check versioned API health")
 async def api_health() -> dict:
     return {"status": "ok", "service": "PulseTrack", "version": app.version}
 

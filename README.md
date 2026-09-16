@@ -239,6 +239,105 @@ GET http://127.0.0.1:8000/api/v1/service-status
 POST http://127.0.0.1:8000/api/v1/auth/token
 ```
 
+## Task 12: Automated tests
+
+The automated test suite covers the main healthcare workflow, validation failures, authorization boundaries, service failures, request correlation, and transaction rollback behavior.
+
+### Completion guide
+
+- Tests reset the in-memory application database around every test so records and ownership state cannot leak between cases
+- Happy paths cover doctor, patient, appointment, and prescription workflows
+- Failure paths cover malformed input, duplicate records, invalid relationships, missing records, and degraded upstream responses
+- Authorization regressions cover collection scoping plus cross-user detail, update, and delete boundaries
+- Service integration tests cover successful mocking, invalid payloads, timeouts, HTTP failures, and safe degraded responses
+
+### Run the tests
+
+```bash
+source .venv/bin/activate
+python -m pytest -q
+python -m compileall -q app tests
+```
+
+The suite is expected to pass without warnings. The test client uses the `httpx2` dependency declared in `requirements.txt` to match the installed Starlette version.
+
+## Task 13: API documentation
+
+The API publishes an OpenAPI contract with grouped tags, endpoint summaries, authentication metadata, and interactive documentation:
+
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+- OpenAPI JSON: `http://127.0.0.1:8000/openapi.json`
+
+### Reproducible setup
+
+Create a virtual environment, install the project dependencies, and copy `.env.example` to `.env` or export the values in your shell:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+The application reads environment variables directly from the process environment. If you use `.env`, export it before starting the service or load it with your preferred environment manager.
+
+### Environment variables
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | No | `sqlite+aiosqlite:///./pulsetrack.db` | Async database connection string. |
+| `PULSETRACK_AUTH_SECRET_KEY` | No for local development | Development placeholder | HMAC signing key; use a long random value outside local development. |
+| `PULSETRACK_AUTH_USERNAME` | No | `demo` | Default local user name. |
+| `PULSETRACK_AUTH_PASSWORD` | No | `pulsetrack-dev-password` | Default local password; replace it outside local development. |
+| `PULSETRACK_ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` | Token lifetime in minutes. |
+| `PULSETRACK_AUTH_USERS` | No | Empty | Comma-separated `username:password:role` entries. |
+| `PULSETRACK_EXTERNAL_SERVICE_URL` | No | `https://example.com/api` | External service base URL. |
+| `PULSETRACK_EXTERNAL_SERVICE_TIMEOUT_SECONDS` | No | `5.0` | External request timeout. |
+
+### Migrations
+
+For a fresh database, create the schema through Alembic:
+
+```bash
+alembic upgrade head
+```
+
+To generate a migration after changing SQLAlchemy models:
+
+```bash
+alembic revision --autogenerate -m "describe_schema_change"
+alembic upgrade head
+```
+
+The Alembic configuration uses `DATABASE_URL` through `alembic/env.py`, so the migration target matches the application database.
+
+### Example requests
+
+Start the service with `uvicorn app.main:app --reload`, then request a bearer token:
+
+```bash
+TOKEN=$(curl -sS -X POST http://127.0.0.1:8000/api/v1/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"demo","password":"pulsetrack-dev-password"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+```
+
+Use the token for protected endpoints:
+
+```bash
+curl -sS http://127.0.0.1:8000/api/v1/doctors \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/appointments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"doctor_id":1,"patient_id":1,"appointment_date":"2026-09-20","appointment_time":"14:15","reason":"Routine review"}'
+```
+
+The generated OpenAPI document is the authoritative source for request and response schemas; Swagger UI can execute these requests against a running local instance.
+
 ## Task 11: Reliability
 
 The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
