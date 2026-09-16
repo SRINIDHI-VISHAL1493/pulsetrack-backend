@@ -210,7 +210,7 @@ Private doctor, patient, appointment, and prescription queries are scoped to the
 - Related records must also belong to that user
 - Ownership behavior is covered by automated tests
 
-## Task 9: Service integration
+## Task 10: Service integration
 
 The service integration layer keeps external HTTP dependency logic out of route handlers. A dedicated client handles request timeouts, stuck upstream calls, and non-2xx failures, while the route focuses on API response shaping and error translation.
 
@@ -239,7 +239,7 @@ GET http://127.0.0.1:8000/api/v1/service-status
 POST http://127.0.0.1:8000/api/v1/auth/token
 ```
 
-## Task 10: Reliability
+## Task 11: Reliability
 
 The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
 
@@ -251,7 +251,7 @@ The reliability layer provides request correlation, structured lifecycle and fai
 - External service failures include invalid or non-object upstream payloads
 - Database session scopes roll back failed transactions before re-raising the original error
 
-## Task 11: Automated tests
+## Task 12: Automated tests
 
 The automated test suite covers the main healthcare workflow, validation failures, authorization boundaries, service failures, request correlation, and transaction rollback behavior.
 
@@ -273,7 +273,7 @@ python -m compileall -q app tests
 
 The suite is expected to pass without warnings. The test client uses the `httpx2` dependency declared in `requirements.txt` to match the installed Starlette version.
 
-## Task 12: API documentation
+## Task 13: API documentation
 
 The API publishes an OpenAPI contract with grouped tags, endpoint summaries, authentication metadata, and interactive documentation:
 
