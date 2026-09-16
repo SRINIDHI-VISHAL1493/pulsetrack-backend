@@ -239,7 +239,19 @@ GET http://127.0.0.1:8000/api/v1/service-status
 POST http://127.0.0.1:8000/api/v1/auth/token
 ```
 
-## Task 12: Automated tests
+## Task 10: Reliability
+
+The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
+
+### Completion guide
+
+- Every response includes an `X-Request-ID` header for support and log correlation
+- Validation failures return a stable error shape with actionable field details
+- Unexpected server errors are logged with the request ID and return a safe generic message
+- External service failures include invalid or non-object upstream payloads
+- Database session scopes roll back failed transactions before re-raising the original error
+
+## Task 11: Automated tests
 
 The automated test suite covers the main healthcare workflow, validation failures, authorization boundaries, service failures, request correlation, and transaction rollback behavior.
 
@@ -261,7 +273,7 @@ python -m compileall -q app tests
 
 The suite is expected to pass without warnings. The test client uses the `httpx2` dependency declared in `requirements.txt` to match the installed Starlette version.
 
-## Task 13: API documentation
+## Task 12: API documentation
 
 The API publishes an OpenAPI contract with grouped tags, endpoint summaries, authentication metadata, and interactive documentation:
 
@@ -337,18 +349,6 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/appointments \
 ```
 
 The generated OpenAPI document is the authoritative source for request and response schemas; Swagger UI can execute these requests against a running local instance.
-
-## Task 11: Reliability
-
-The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
-
-### Completion guide
-
-- Every response includes an `X-Request-ID` header for support and log correlation
-- Validation failures return a stable error shape with actionable field details
-- Unexpected server errors are logged with the request ID and return a safe generic message
-- External service failures include invalid or non-object upstream payloads
-- Database session scopes roll back failed transactions before re-raising the original error
 
 ## Validation
 
