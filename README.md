@@ -352,14 +352,6 @@ The generated OpenAPI document is the authoritative source for request and respo
 
 ## Task 14: Deployment readiness
 
-### Today's progress
-
-Production configuration, startup commands, dependency-aware health checks, and the deployment checklist have been completed. Debug mode is explicitly disabled, the production server binds to the configured host and port without auto-reload by default, and both health and readiness routes verify database connectivity. The implementation is covered by automated tests, with 29 tests passing and Python compilation completing successfully.
-
-### Blockers
-
-No code-level blockers remain. A production deployment still requires environment-specific credentials, a reachable deployment database, a completed `alembic upgrade head`, and the configured external service URL and timeout.
-
 ### Production startup
 
 Run the service without the development auto-reloader:
