@@ -25,12 +25,15 @@ def test_openapi_metadata_and_documented_paths_are_published():
         "Integration",
     }
     assert "/api/v1/auth/token" in document["paths"]
+    assert "/readyz" in document["paths"]
+    assert "/api/v1/readyz" in document["paths"]
     assert "/api/v1/doctors" in document["paths"]
     assert "/api/v1/appointments/{appointment_id}" in document["paths"]
     assert "/api/v1/prescriptions" in document["paths"]
     assert document["components"]["securitySchemes"]["BearerAuth"]["scheme"] == "bearer"
     assert document["paths"]["/api/v1/doctors"]["get"]["security"] == [{"BearerAuth": []}]
     assert "security" not in document["paths"]["/api/v1/health"]["get"]
+    assert "security" not in document["paths"]["/api/v1/readyz"]["get"]
 
 
 def test_documentation_endpoints_are_public():

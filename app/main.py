@@ -12,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import models  # noqa: F401  # registers SQLAlchemy models
 from app.auth import (
@@ -24,7 +26,7 @@ from app.auth import (
     create_access_token,
     get_user_role,
 )
-from app.database import init_db
+from app.database import engine, init_db
 from app.services import ExternalServiceError, ExternalServiceTimeoutError, fetch_external_status
 
 
@@ -196,6 +198,7 @@ app = FastAPI(
     contact={"name": "PulseTrack API Team"},
     license_info={"name": "Internal project"},
     openapi_tags=OPENAPI_TAGS,
+    debug=False,
     lifespan=lifespan,
 )
 
@@ -235,7 +238,9 @@ app.openapi = custom_openapi
 PUBLIC_PATHS = {
     "/",
     "/health",
+    "/readyz",
     "/api/v1/health",
+    "/api/v1/readyz",
     "/api/v1/service-status",
     "/api/v1/auth/token",
     "/favicon.ico",
@@ -506,13 +511,41 @@ async def root() -> dict:
 
 
 @app.get("/health", tags=["Health"], summary="Check service health")
-async def health() -> dict:
-    return {"status": "ok", "service": "PulseTrack"}
+async def health() -> JSONResponse:
+    payload, status_code = await readiness_response()
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+async def readiness_response() -> tuple[dict, int]:
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logger.exception("readiness_check_failed")
+        return (
+            {"status": "not_ready", "service": "PulseTrack", "database": "unavailable"},
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return {"status": "ready", "service": "PulseTrack", "database": "ok"}, status.HTTP_200_OK
+
+
+@app.get("/readyz", tags=["Health"], summary="Check service readiness")
+async def readiness() -> JSONResponse:
+    payload, status_code = await readiness_response()
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.get("/api/v1/health", tags=["Health"], summary="Check versioned API health")
-async def api_health() -> dict:
-    return {"status": "ok", "service": "PulseTrack", "version": app.version}
+async def api_health() -> JSONResponse:
+    payload, status_code = await readiness_response()
+    payload["version"] = app.version
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.get("/api/v1/readyz", tags=["Health"], summary="Check versioned service readiness")
+async def api_readiness() -> JSONResponse:
+    payload, status_code = await readiness_response()
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.get("/api/v1/service-status", tags=["Integration"])
@@ -901,6 +934,13 @@ async def delete_prescription(request: Request, prescription_id: int) -> dict:
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "8000")),
+        reload=os.getenv("UVICORN_RELOAD", "false").lower() == "true",
+    )

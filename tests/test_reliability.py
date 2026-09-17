@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import services
 from app.auth import create_access_token
@@ -24,6 +25,62 @@ def test_request_id_is_preserved_on_success_and_auth_failure():
     auth_response = client.get("/api/v1/doctors", headers={"X-Request-ID": request_id})
     assert auth_response.status_code == 401
     assert auth_response.headers["X-Request-ID"] == request_id
+
+
+def test_readiness_reports_database_health(monkeypatch):
+    response = client.get("/readyz", headers={"X-Request-ID": "readiness-check"})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "readiness-check"
+    assert response.json() == {
+        "status": "ready",
+        "service": "PulseTrack",
+        "database": "ok",
+    }
+
+
+def test_readiness_returns_service_unavailable_when_database_is_down(monkeypatch):
+    class BrokenConnection:
+        async def __aenter__(self):
+            raise SQLAlchemyError("database unavailable")
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class BrokenEngine:
+        def connect(self):
+            return BrokenConnection()
+
+    monkeypatch.setattr("app.main.engine", BrokenEngine())
+
+    response = client.get("/api/v1/readyz")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "service": "PulseTrack",
+        "database": "unavailable",
+    }
+
+
+def test_versioned_health_checks_database_dependency(monkeypatch):
+    class BrokenConnection:
+        async def __aenter__(self):
+            raise SQLAlchemyError("database unavailable")
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class BrokenEngine:
+        def connect(self):
+            return BrokenConnection()
+
+    monkeypatch.setattr("app.main.engine", BrokenEngine())
+
+    response = client.get("/api/v1/health")
+
+    assert response.status_code == 503
+    assert response.json()["database"] == "unavailable"
 
 
 def test_validation_error_contains_request_id_and_field_details():

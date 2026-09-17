@@ -350,6 +350,34 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/appointments \
 
 The generated OpenAPI document is the authoritative source for request and response schemas; Swagger UI can execute these requests against a running local instance.
 
+## Task 14: Deployment readiness
+
+### Today's progress
+
+Production configuration, startup commands, dependency-aware health checks, and the deployment checklist have been completed. Debug mode is explicitly disabled, the production server binds to the configured host and port without auto-reload by default, and both health and readiness routes verify database connectivity. The implementation is covered by automated tests, with 29 tests passing and Python compilation completing successfully.
+
+### Blockers
+
+No code-level blockers remain. A production deployment still requires environment-specific credentials, a reachable deployment database, a completed `alembic upgrade head`, and the configured external service URL and timeout.
+
+### Production startup
+
+Run the service without the development auto-reloader:
+
+```bash
+HOST=0.0.0.0 PORT=8000 UVICORN_RELOAD=false uvicorn app.main:app
+```
+
+Use `/health` or `/api/v1/health` for dependency-aware health checks. Use `/readyz` or `/api/v1/readyz` for readiness checks. These endpoints execute `SELECT 1` against the configured database and return `503` while the database is unavailable.
+
+### Deployment checklist
+
+- Set a long, random `PULSETRACK_AUTH_SECRET_KEY` and strong credentials.
+- Run `alembic upgrade head` against the deployment database.
+- Keep `UVICORN_RELOAD=false` in production.
+- Exclude `.env` and database files from source control.
+- Configure the external service URL and timeout for the target environment.
+
 ## Validation
 
 ```bash
