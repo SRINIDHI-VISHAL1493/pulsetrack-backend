@@ -222,23 +222,6 @@ The service integration layer keeps external HTTP dependency logic out of route 
 - Degraded responses remain safe and predictable even when the upstream is unavailable
 - The external service can be configured via environment variables for URL and timeout settings
 
-### Example upstream configuration
-
-```bash
-export PULSETRACK_EXTERNAL_SERVICE_URL="https://api.provider.example"
-export PULSETRACK_EXTERNAL_SERVICE_TIMEOUT_SECONDS="5.0"
-```
-
-### Common endpoints
-
-```text
-GET http://127.0.0.1:8000/
-GET http://127.0.0.1:8000/health
-GET http://127.0.0.1:8000/api/v1/health
-GET http://127.0.0.1:8000/api/v1/service-status
-POST http://127.0.0.1:8000/api/v1/auth/token
-```
-
 ## Task 11: Reliability
 
 The reliability layer provides request correlation, structured lifecycle and failure logs, consistent validation and internal-error responses, and transaction rollback protection for database operations.
@@ -375,4 +358,65 @@ Use `/health` or `/api/v1/health` for dependency-aware health checks. Use `/read
 ```bash
 python -m compileall -q app tests
 python -m pytest -q
+```
+
+## Task 15: Final review and demonstration
+
+The final review confirms that the project can be checked from a clean state and that the
+complete workflow is demonstrable without relying on an external service.
+
+### Verification checklist
+
+Run the automated suite and syntax check:
+
+```bash
+./.venv/bin/python -m pytest -q
+./.venv/bin/python -m compileall -q app tests
+```
+
+Validate the migration chain against a clean SQLite database:
+
+```bash
+DATABASE_URL="sqlite+aiosqlite:///./pulsetrack-review.db" alembic upgrade head
+DATABASE_URL="sqlite+aiosqlite:///./pulsetrack-review.db" alembic current
+rm -f pulsetrack-review.db
+```
+
+The expected migration head is `1689adcd58b4`, and the test suite should complete with
+all tests passing.
+
+### Demonstration sequence
+
+Start the API with the environment values from `.env.example`:
+
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --reload
+```
+
+Then use the interactive documentation at `http://127.0.0.1:8000/docs`:
+
+1. Request a bearer token from `POST /api/v1/auth/token`.
+2. Authorize Swagger UI with the returned token.
+3. Read the seeded doctors and patients.
+4. Create an appointment and update its status.
+5. Create a matching prescription and retrieve it.
+6. Delete the appointment and confirm its prescription is removed.
+7. Check `/health`, `/readyz`, and `/api/v1/service-status` for operational status.
+
+### Example upstream configuration
+
+```bash
+export PULSETRACK_EXTERNAL_SERVICE_URL="https://api.provider.example"
+export PULSETRACK_EXTERNAL_SERVICE_TIMEOUT_SECONDS="5.0"
+```
+
+### Common endpoints
+
+```text
+GET http://127.0.0.1:8000/
+GET http://127.0.0.1:8000/health
+GET http://127.0.0.1:8000/api/v1/health
+GET http://127.0.0.1:8000/api/v1/service-status
+POST http://127.0.0.1:8000/api/v1/auth/token
 ```

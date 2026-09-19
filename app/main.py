@@ -349,22 +349,6 @@ def normalize_search_term(value: str | None) -> str | None:
     return normalized or None
 
 
-def matches_search(record: object, candidate_fields: list[str], search_term: str | None) -> bool:
-    if search_term is None:
-        return True
-    for field_name in candidate_fields:
-        value = getattr(record, field_name, None)
-        if value is None:
-            continue
-        if isinstance(value, (list, tuple)):
-            serializable = " ".join(str(item) for item in value)
-        else:
-            serializable = str(value)
-        if search_term in serializable.lower():
-            return True
-    return False
-
-
 def filter_owned_records(
     collection: dict[int, object],
     ownership: dict[int, str],
@@ -385,9 +369,6 @@ def filter_owned_records(
             if value is not None
         ):
             continue
-        if term is not None and not matches_search(record, list(filters.keys()) or [], term):
-            # Search should inspect actual content fields, not filter keys.
-            pass
         if term is not None:
             candidate_values = [
                 getattr(record, "first_name", None),
